@@ -241,7 +241,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 
 		// If image is the only child, take its alt text as the link text.
 		if img := node.FirstChild; img != nil && node.LastChild == img && img.DataAtom == atom.Img {
-			if altText := getAttrVal(img, "alt"); altText != "" {
+			if altText, _ := getAttrVal(img, "alt"); altText != "" {
 				if err := ctx.emit(altText); err != nil {
 					return err
 				}
@@ -251,7 +251,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 		}
 
 		hrefLink := ""
-		if attrVal := getAttrVal(node, "href"); attrVal != "" {
+		if attrVal, _ := getAttrVal(node, "href"); attrVal != "" {
 			attrVal = ctx.normalizeHrefLink(attrVal)
 			// Don't print link href if it matches link element content or if the link is empty.
 			if !ctx.options.OmitLinks && attrVal != "" && linkText != attrVal {
@@ -281,6 +281,56 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 	case atom.Style, atom.Script, atom.Head:
 		// Ignore the subtree.
 		return nil
+
+	case atom.Input:
+		inputValue := ""
+		if attrVal, _ := getAttrVal(node, "value"); attrVal != "" {
+			inputValue = attrVal
+		}
+
+		return ctx.emit("'" + inputValue + "'" )
+
+	case atom.Select:
+		selectValue := ""
+
+		// Default value use the name of the
+		if attrVal, _ := getAttrVal(node, "name"); attrVal != "" {
+			selectValue = "[" + attrVal + "]"
+		}
+
+		var opts []string
+		var selOpts []string
+		var firstOpt []string
+		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			if c.DataAtom != atom.Option {
+				continue
+			}
+
+			if attrVal, _ := getAttrVal(c, "value"); attrVal == "" {
+				if len(opts) == 0 && len(firstOpt) == 0 && c.FirstChild.Data != "" {
+					firstOpt = append(firstOpt, c.FirstChild.Data)
+				}
+				continue
+			}
+
+			if c.FirstChild.Data!= "" {
+				opts = append(opts, "'" + c.FirstChild.Data+ "'")
+			}
+
+			if attrVal, ok := getAttrVal(c, "selected"); attrVal != "" || ok {
+				selOpts = append(selOpts, "'" + c.FirstChild.Data + "'")
+			}
+		}
+
+		if len(selOpts) > 0 {
+			selectValue = strings.Join(selOpts, ", ")
+		} else if len(opts) > 0 {
+			selectValue = "[" + strings.Join(opts, ", ") + "]"
+		} else if len(firstOpt) > 0 {
+			selectValue = "[" + strings.Join(firstOpt, ", ") + "]"
+		}
+
+		return ctx.emit(selectValue)
 
 	default:
 		return ctx.traverseChildren(node)
@@ -524,12 +574,12 @@ func (ctx *textifyTraverseContext) renderEachChild(node *html.Node) (string, err
 	return buf.String(), nil
 }
 
-func getAttrVal(node *html.Node, attrName string) string {
+func getAttrVal(node *html.Node, attrName string) (string, bool) {
 	for _, attr := range node.Attr {
 		if attr.Key == attrName {
-			return attr.Val
+			return attr.Val, true
 		}
 	}
 
-	return ""
+	return "", false
 }

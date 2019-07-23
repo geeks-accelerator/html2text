@@ -881,6 +881,63 @@ func TestPeriod(t *testing.T) {
 	}
 }
 
+func TestFormInput(t *testing.T) {
+	testCases := []struct {
+		input string
+		expr  string
+	}{
+		{
+			`This is an example&nbsp;<input type="text" size="10" value="G2G">&nbsp;inline input.`,
+			`This is an example G2G inline input\.`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		if msg, err := wantRegExp(testCase.input, testCase.expr); err != nil {
+			t.Error(err)
+		} else if len(msg) > 0 {
+			t.Log(msg)
+		}
+	}
+}
+
+func TestFormSelect(t *testing.T) {
+	testCases := []struct {
+		input string
+		expr  string
+	}{
+		{
+			`We have the ability to get the selected value of <select data-object-id="32" name=""><option>Status</option><option value="Incomplete">incomplete</option><option value="Done" selected="selected">done</option><option value="Error">error</option></select> dynamically.`,
+			`We have the ability to get the selected value of 'done' dynamically.`,
+		},
+		{
+			`We have the ability to get the selected value of <select data-object-id="32" name=""><option>Status</option><option value="Incomplete">incomplete</option><option value="Done" selected>done</option><option value="Error">error</option></select> dynamically.`,
+			`We have the ability to get the selected value of 'done' dynamically.`,
+		},
+		{
+			`We have the ability to get the selected value of <select data-object-id="32" name=""><option>Status</option><option value="Incomplete">incomplete</option><option value="Done">done</option><option value="Error">error</option></select> dynamically.`,
+			`We have the ability to get the selected value of \['incomplete', 'done', 'error'\] dynamically.`,
+		},
+		{
+			`We have the ability to get the selected value of <select data-object-id="32" name="status"><option>Choose Status</option></select> dynamically.`,
+			`We have the ability to get the selected value of \[Choose Status\] dynamically.`,
+		},
+		{
+			`We have the ability to get the selected value of <select data-object-id="32" name="status"></select> dynamically.`,
+			`We have the ability to get the selected value of \[status\] dynamically.`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		if msg, err := wantRegExp(testCase.input, testCase.expr); err != nil {
+			t.Error(err)
+		} else if len(msg) > 0 {
+			t.Log(msg)
+		}
+	}
+}
+
+
 type StringMatcher interface {
 	MatchString(string) bool
 	String() string
